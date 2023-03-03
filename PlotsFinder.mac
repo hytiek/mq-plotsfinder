@@ -1,0 +1,245 @@
+|     ____  __      __       _______           __         
+|    / __ \/ /___  / /______/ ____(_)___  ____/ /__  _____
+|   / /_/ / / __ \/ __/ ___/ /_  / / __ \/ __  / _ \/ ___/
+|  / ____/ / /_/ / /_(__  ) __/ / / / / / /_/ /  __/ /    
+| /_/   /_/\____/\__/____/_/   /_/_/ /_/\__,_/\___/_/     
+|
+|	by hytiek
+|
+| 	VERSION:
+|		1.0.0
+|
+|	INTRO / INFO:
+|		I was making a macro for myself to find a street / location
+|		in a zone to cater for 8 houses all next to each other so
+|		that I could be lazy and have all my houses in one spot.
+|		
+|		I realized that others might also use housing like I do, so
+|		here's what I ended up with. It works, it could be polished;
+|		but I hope you find it useful for the one time you'll use it.
+|
+|		Example to find a zone which has 8 plots near each other:
+|			/mac PlotsFinder 8
+|---------------------------------------------------------------------                                    
+
+Sub Main
+	/declare numPlots	int	outer	0
+	
+	/if (!${Zone.ShortName.Equal[GuildLobby]}) {
+		/echo \aw[\aoPlotsFinder\ax] You must be in the Guild Lobby to run this.
+		/endmacro
+	}
+	
+	/if (!${Param0} || ${Param0} > 15) { 
+		/echo \aw[\aoPlotsFinder\ax] Please specify how many plots you want together (max=\at15\ax).
+		/echo \aw[\aoPlotsFinder\ax]    Example: [\at/mac PlotsFinder 3\ax].
+		/endmacro
+	} else {
+		/echo \aw[\aoPlotsFinder\ax] Searching for [\at${Param0}\ax] plots on the same street. 
+		/varset numPlots ${Param0}
+	}
+	
+	/nav loc 969 293 -18
+	/while (${Navigation.Active}) {
+		/delay 1s
+	}
+	
+	/while (${Spawn[npc Annabelle].Distance} >= 50) {
+		/echo \aw[\aoPlotsFinder\ax] Seems we stopped mid-way, headed towards the gate.
+		/nav loc 969 293 -18
+		/delay 3s
+	}
+	
+	/call OpenWindow "RealEstateNeighborhoodWnd"
+	
+	/call CheckPublicZones 
+	echo \aw[\aoPlotsFinder\ax] Unable to locate zone with [\at$numPlots]ax] available.
+/return
+
+Sub OpenWindow(WndName)
+	|- Open the Real Estate window
+	/while (!${Window[${WndName}].DoOpen}) {
+		/delay 5
+	}
+/return
+
+Sub CheckPublicZones
+	/declare index				int		local	1
+    /declare indexCount			int		local	0
+	/declare pubZoneCount		int		local	0
+	/declare curNeighborhood	string	local
+	
+	/varcalc indexCount ${Window[RealEstateNeighborhoodWnd].Child[RENW_NeighborhoodList].Items}
+	/for index 1 to ${indexCount}
+		/if (!${Window[RealEstateNeighborhoodWnd].Child[RENW_NeighborhoodList].List[${index},2].Length} >= 1) {
+			/if (!${Window[RealEstateNeighborhoodWnd].Child[RENW_NeighborhoodList].List[${index},1].Find[Village]}) {
+				/varset curNeighborhood ${Window[RealEstateNeighborhoodWnd].Child[RENW_NeighborhoodList].List[${index},1]}
+				/echo \aw[\aoPlotsFinder\ax] Going to check out [\at${Window[RealEstateNeighborhoodWnd].Child[RENW_NeighborhoodList].List[${index},1]}\ax]
+				/notify RealEstateNeighborhoodWnd RENW_NeighborhoodList listselect ${index}
+				/varcalc pubZoneCount ${pubZoneCount}+1
+				/delay 2s
+				/notify RealEstateNeighborhoodWnd RENW_Go_Button leftmouseup
+				/delay 20s
+				
+				/while (!${Zone.ShortName.Equal[neighborhood]}) {
+					/delay 2s
+				}
+				
+				/call GetEmptyAddresses "${curNeighborhood}"
+				
+				/echo \aw[\aoPlotsFinder\ax] We didn't find enough here. Headed to next zone.
+				
+				/nav loc -3000 2030 4
+				/delay 5s
+				/doortarget id 134
+				/delay 5
+				/click left door
+				
+				/while (!${Zone.ShortName.Equal[GuildLobby]}) {
+					/delay 2s
+				}
+				
+				/echo \aw[\aoPlotsFinder\ax] Pausing for [\at10\ax] seconds, in case you want to break or pause.
+				/delay 10s
+			}
+		}
+	/next index
+	/echo \aw[\aoPlotsFinder\ax] We checked ${pubZoneCount} public zones and found nothing.
+/return
+
+Sub GetEmptyAddresses(nbh)
+	/declare index				int		local	1
+    /declare indexCount			int		local	0
+	/declare availCount			int		local	0
+	/declare curAddress			string	local	NA
+	/declare Betwixt_Avenue		int		local	0
+	/declare Brimming_Heights	int		local	0
+	/declare Brimming_Way		int		local	0
+	/declare Guild_Way			int		local	0
+	/declare Market_Street		int		local	0
+	/declare Market_Heights		int		local	0
+	/declare Park_Circle		int		local	0
+	/declare Terminus_Street	int		local	0
+	/declare Terminus_Heights	int		local	0
+	/declare Vanward_Street		int		local	0
+	/declare Vanward_Heights	int		local	0
+	/declare flyTo				string	local	NA
+	/declare emptyPlots			int		local	0
+	
+	/varcalc indexCount ${Window[RealEstatePlotSearchWnd].Child[REPSW_PlotList].Items}
+
+	/for index 1 to ${indexCount}
+	/varset curAddress ${Window[RealEstatePlotSearchWnd].Child[REPSW_PlotList].List[${index},2]}
+		/if (!${Window[RealEstatePlotSearchWnd].Child[REPSW_PlotList].List[${index},4].Length} >= 1) {
+			/if (${curAddress.Find[Betwixt Avenue]}) {
+				/varcalc Betwixt_Avenue ${Betwixt_Avenue} + 1
+			} else /if (${curAddress.Find[Brimming Heights]}) {
+				/varcalc Brimming_Heights ${Brimming_Heights} + 1
+			} else /if (${curAddress.Find[Brimming Way]}) {
+				/varcalc Brimming_Way ${Brimming_Way} + 1
+			} else /if (${curAddress.Find[Guild Way]}) {
+				/varcalc Guild_Way ${Guild_Way} + 1
+			} else /if (${curAddress.Find[Market Street]}) {
+				/varcalc Market_Street ${Market_Street} + 1
+			} else /if (${curAddress.Find[Market Heights]}) {
+				/varcalc Market_Heights ${Market_Heights} + 1
+			} else /if (${curAddress.Find[Park Circle]}) {
+				/varcalc Park_Circle ${Park_Circle} + 1
+			} else /if (${curAddress.Find[Terminus Street]}) {
+				/varcalc Terminus_Street ${Terminus_Street} + 1
+			} else /if (${curAddress.Find[Terminus Heights]}) {
+				/varcalc Terminus_Heights ${Terminus_Heights} + 1
+			} else /if (${curAddress.Find[Vanward Street]}) {
+				/varcalc Vanward_Street ${Vanward_Street} + 1
+			} else /if (${curAddress.Find[Vanward Heights]}) {
+				/varcalc Vanward_Heights ${Vanward_Heights} + 1
+			}
+			
+			/varcalc availCount ${availCount} + 1
+		}
+	/next index
+	
+	/echo \aw[\aoPlotsFinder\ax] Found [\at${availCount}\ax] total available properties in [\at${nbh}\ax]
+	
+	/if (${numPlots} <= ${Betwixt_Avenue}) {
+		/varset flyTo "Betwixt Avenue"
+		/varset emptyPlots ${Betwixt_Avenue}
+	} else /if (${numPlots} <= ${Brimming_Heights}) {
+		/varset flyTo "Brimming Heights"
+		/varset emptyPlots ${Brimming_Heights}
+	} else /if (${numPlots} <= ${Brimming_Way}) {
+		/varset flyTo "Brimming Way"
+		/varset emptyPlots ${Brimming_Way}
+	} else /if (${numPlots} <= ${Guild_Way}) {
+		/varset flyTo "Guild Way"
+		/varset emptyPlots ${Guild_Way}
+	} else /if (${numPlots} <= ${Market_Street}) {
+		/varset flyTo "Market Street"
+		/varset emptyPlots ${Market_Street}
+	} else /if (${numPlots} <= ${Market_Heights}) {
+		/varset flyTo "Market Heights"
+		/varset emptyPlots ${Market_Heights}
+	} else /if (${numPlots} <= ${Park_Circle}) {
+		/varset flyTo "Park Circle"
+		/varset emptyPlots ${Park_Circle}
+	} else /if (${numPlots} <= ${Terminus_Street}) {
+		/varset flyTo "Terminus Street"
+		/varset emptyPlots ${Terminus_Street}
+	} else /if (${numPlots} <= ${Terminus_Heights}) {
+		/varset flyTo "Terminus Heights"
+		/varset emptyPlots ${Terminus_Heights}
+	} else /if (${numPlots} <= ${Vanward_Street}) {
+		/varset flyTo "Vanward Street"
+		/varset emptyPlots ${Vanward_Street}
+	} else /if (${numPlots} <= ${Vanward_Heights}) {
+		/varset flyTo "Vanward Heights"
+		/varset emptyPlots ${Vanward_Heights}
+	}
+	
+	/if (${flyTo.NotEqual[NA]} && ${emptyPlots} >= ${numPlots}) {
+		/echo \aw[\aoPlotsFinder\ax] Found [\at${emptyPlots}\ax] available properties on [\at${flyTo}\ax], taking you there now.
+		/call flyToAddy ${flyTo}
+	}
+/return
+
+Sub flyToAddy(addy)
+	/declare index			int		local	1
+    /declare indexCount		int		local	0
+	/declare curAddress		string	local
+	
+	/nav loc -2779 1943 5
+	/delay 5
+	
+	/while (${Navigation.Active}) {
+		/delay 1s
+	}
+	
+	/doortarget id 132
+	/delay 5
+	/click left door
+	/delay 3s
+		
+	/while (!${Window[RealEstatePlotSearchWnd].Child[REPSW_PlotList].List[=101 ${addy},2]}) {
+		/delay 2s
+	}
+	
+	/while (!${Window[RealEstatePlotSearchWnd].Child[REPSW_PlotList].List[=101 ${addy},2]} >= 1) {
+		/delay 2s
+	}
+	
+	/notify RealEstatePlotSearchWnd REPSW_PlotList listselect ${Window[RealEstatePlotSearchWnd].Child[REPSW_PlotList].List[=101 ${addy},2]}
+	/delay 5
+	
+	/notify RealEstatePlotSearchWnd REPSW_Go_Btn leftmouseup
+	/echo \aw[\aoPlotsFinder\ax] Good luck on your new housing project!
+	/delay 1s
+	
+	/while (${Me.Moving}) {
+		/delay 5
+	}
+	
+	/cleanup
+	/echo \aw[\aoPlotsFinder\ax] You have been flown to [\at${addy}\ax] safely.
+	/echo \aw[\aoPlotsFinder\ax] Sincerely, \athytiek
+	/endmacro
+/return
